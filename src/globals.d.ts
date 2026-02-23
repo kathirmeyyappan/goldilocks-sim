@@ -12,6 +12,8 @@ declare global {
     pl_masse_max: string;
     pl_orbper_min: string;
     pl_orbper_max: string;
+    pl_orbeccen_min: string;
+    pl_orbeccen_max: string;
   }
 
   interface TapRow {
@@ -31,6 +33,7 @@ declare global {
       buildQuery: (input: QueryInput) => string;
       buildWhere: (input: QueryInput) => string;
       fetchPlanets: (input: QueryInput) => Promise<FetchResult>;
+      fetchPlanetsByNames: (names: string[]) => Promise<FetchResult>;
     };
   }
 }

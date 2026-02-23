@@ -22,6 +22,16 @@ export interface SimulationState {
   readonly hzOuter: number;
   readonly orbitEccentricity: number;
   readonly eccentricityKnown: boolean;
+  /** Star luminosity L/L☉ (from 10^st_lum). null if unknown. */
+  readonly starLuminosity: number | null;
+  /** Star effective temp (K). null if unknown. */
+  readonly starTeffK: number | null;
+  /** Star radius (R☉). null if unknown. */
+  readonly starRadiusRsun: number | null;
+  /** Star mass (M☉). null if unknown. */
+  readonly starMassMsun: number | null;
+  /** Planet mass (M⊕). null if unknown. */
+  readonly planetMassMe: number | null;
   getOrbitPoints(): Array<{ x: number; y: number; z: number }>;
   update(deltaTime: number): void;
   getPlanetPosition(): { x: number; y: number; z: number };
@@ -61,6 +71,20 @@ export function createSimulationFromRow(row: Record<string, unknown>): Simulatio
   const plOrbeccen = num(row, "pl_orbeccen", 0);
   const plRade = num(row, "pl_rade", 1);
   const plOrbper = num(row, "pl_orbper", 365);
+  const stTeff = get(row, "st_teff");
+  const stMass = get(row, "st_mass");
+  const plMasse = get(row, "pl_masse");
+
+  const starLuminosity: number | null =
+    stLum != null && Number.isFinite(stLum) ? Math.pow(10, stLum) : null;
+  const starTeffK: number | null =
+    stTeff != null && Number.isFinite(Number(stTeff)) ? Number(stTeff) : null;
+  const starRadiusRsun: number | null =
+    stRad != null && Number.isFinite(stRad) ? stRad : null;
+  const starMassMsun: number | null =
+    stMass != null && Number.isFinite(Number(stMass)) ? Number(stMass) : null;
+  const planetMassMe: number | null =
+    plMasse != null && Number.isFinite(Number(plMasse)) ? Number(plMasse) : null;
 
   const hzAu = habitableZoneAU(stLum);
   const inHz = plOrbsmax >= hzAu.inner && plOrbsmax <= hzAu.outer;
@@ -113,13 +137,22 @@ export function createSimulationFromRow(row: Record<string, unknown>): Simulatio
     hzOuter,
     orbitEccentricity,
     eccentricityKnown,
+    starLuminosity,
+    starTeffK,
+    starRadiusRsun,
+    starMassMsun,
+    planetMassMe,
 
     getOrbitPoints(): Array<{ x: number; y: number; z: number }> {
       return orbitPointsCache;
     },
 
     update(deltaTime: number): void {
-      time += deltaTime;
+      // GUI-native speed: reference = middle of green zone (scene scale). Orbit period ∝ radius.
+      // So angular speed ∝ 1/radius: double the radius → double the orbit time (e.g. 20s → 40s).
+      const refRadius = (hzInner + hzOuter) * 0.5;
+      const r = Math.max(orbitRadius, refRadius * 0.01);
+      time += deltaTime * (refRadius / r);
     },
 
     getPlanetPosition(): { x: number; y: number; z: number } {

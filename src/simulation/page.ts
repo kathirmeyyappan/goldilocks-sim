@@ -33,6 +33,13 @@ import { runScene } from "./scene.js";
   });
   modal?.addEventListener("click", (e: Event) => e.stopPropagation());
 
+  const emptyInput = (): QueryInput => ({
+    st_rad_min: "", st_rad_max: "", st_teff_min: "", st_teff_max: "",
+    pl_orbsmax_min: "", pl_orbsmax_max: "", pl_rade_min: "", pl_rade_max: "",
+    pl_masse_min: "", pl_masse_max: "", pl_orbper_min: "", pl_orbper_max: "",
+    pl_orbeccen_min: "", pl_orbeccen_max: ""
+  });
+
   function getInput(): QueryInput {
     const fd = new FormData(form);
     return {
@@ -47,9 +54,67 @@ import { runScene } from "./scene.js";
       pl_masse_min: (fd.get("pl_masse_min") ?? "") as string,
       pl_masse_max: (fd.get("pl_masse_max") ?? "") as string,
       pl_orbper_min: (fd.get("pl_orbper_min") ?? "") as string,
-      pl_orbper_max: (fd.get("pl_orbper_max") ?? "") as string
+      pl_orbper_max: (fd.get("pl_orbper_max") ?? "") as string,
+      pl_orbeccen_min: (fd.get("pl_orbeccen_min") ?? "") as string,
+      pl_orbeccen_max: (fd.get("pl_orbeccen_max") ?? "") as string
     };
   }
+
+  const PRESETS: { name: string; names?: string[]; input?: QueryInput }[] = [
+    {
+      name: "Famous (Kepler, TRAPPIST, Proxima…)",
+      names: ["Kepler-452 b", "Kepler-442 b", "Kepler-186 f", "TRAPPIST-1 e", "TRAPPIST-1 f", "Proxima Centauri b", "51 Pegasi b", "HD 209458 b"]
+    },
+    {
+      name: "Highly elliptical orbits",
+      input: { ...emptyInput(), pl_orbeccen_min: "0.5", pl_orbeccen_max: "1" }
+    },
+    {
+      name: "Hot Jupiters",
+      input: { ...emptyInput(), pl_rade_min: "8", pl_orbsmax_max: "0.1" }
+    },
+    {
+      name: "Earth-sized (0.5–1.5 R⊕)",
+      input: { ...emptyInput(), pl_rade_min: "0.5", pl_rade_max: "1.5" }
+    }
+  ];
+
+  document.querySelectorAll(".modal-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tab = (btn as HTMLElement).dataset.tab;
+      document.querySelectorAll(".modal-tab").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+      btn.classList.add("active");
+      const panel = document.getElementById("tab-" + tab);
+      if (panel) panel.classList.add("active");
+    });
+  });
+
+  const gridEl = document.getElementById("suggestions-grid");
+  PRESETS.forEach((preset) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = preset.name;
+    btn.addEventListener("click", async () => {
+      statusEl.textContent = "Loading…";
+      resultsEl.innerHTML = "";
+      const out = preset.names
+        ? await window.GoldilocksQuery.fetchPlanetsByNames(preset.names)
+        : await window.GoldilocksQuery.fetchPlanets(preset.input!);
+      if (!out.ok) {
+        statusEl.textContent = "Error: " + (out as { error: string }).error;
+        return;
+      }
+      const data = (out as { data: TapRow[] }).data ?? [];
+      if (data.length === 0) {
+        statusEl.textContent = "No planets in this category.";
+        return;
+      }
+      statusEl.textContent = data.length + " result(s). Click a row to visualize.";
+      renderList(data);
+    });
+    gridEl?.appendChild(btn);
+  });
 
   function renderList(rows: TapRow[]): void {
     resultsEl.innerHTML = "";
@@ -116,11 +181,56 @@ import { runScene } from "./scene.js";
 
   const state = createSimulationFromRow(row);
 
+  function updateScaleBar(maxAu: number): void {
+    const NICE = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10];
+    const maxVal = NICE.find((n) => n >= maxAu * 1.05) ?? NICE[NICE.length - 1];
+    const tickCount = 5;
+    const ticks: number[] = [];
+    for (let i = 0; i <= tickCount; i++) ticks.push((maxVal * i) / tickCount);
+    const formatAu = (v: number) =>
+      v >= 1 ? v.toFixed(0) : v >= 0.1 ? v.toFixed(1) : v.toFixed(2);
+    const w = 200;
+    const h = 44;
+    const lineY = 10;
+    const tickY2 = 18;
+    const labelY = 32;
+    let tickLines = "";
+    let labels = "";
+    ticks.forEach((v, i) => {
+      const x = maxVal > 0 ? (v / maxVal) * w : 0;
+      tickLines += `<line x1="${x}" y1="${lineY}" x2="${x}" y2="${tickY2}"/>`;
+      const anchor = i === 0 ? "start" : i === ticks.length - 1 ? "end" : "middle";
+      labels += `<text x="${x}" y="${labelY}" text-anchor="${anchor}">${formatAu(v)}</text>`;
+    });
+    const scaleEl = document.getElementById("scale");
+    const scaleBar = scaleEl?.querySelector("#scale-bar") ?? document.getElementById("scale-bar");
+    if (scaleBar) {
+      scaleBar.innerHTML =
+        `<line x1="0" y1="${lineY}" x2="${w}" y2="${lineY}" stroke="#fff" stroke-width="2"/>` +
+        tickLines +
+        labels;
+    }
+  }
+
+  const maxDist = Math.max(state.hzOuter, state.orbitRadius);
+  updateScaleBar(maxDist);
+
+  function fmt(x: number | null, decimals: number): string {
+    return x != null ? x.toFixed(decimals) : "—";
+  }
   const lines = [
     "<b>" + state.plName + "</b> (" + state.hostName + ")",
     "Orbit: " + state.orbitAu.toFixed(3) + " AU",
-    "Planet radius: " + (state.planetRadiusRe != null ? state.planetRadiusRe.toFixed(2) : "—") + " R⊕",
-    "Eccentricity: " + (state.eccentricityKnown ? state.orbitEccentricity.toFixed(2) : "unknown"),
+    "Orbital period: " + state.orbitalPeriodDays.toFixed(1) + " days",
+    "Planet radius: " + fmt(state.planetRadiusRe, 2) + " R⊕",
+    "Planet mass: " + fmt(state.planetMassMe, 2) + " M⊕",
+    "Orbit eccentricity: " + (state.eccentricityKnown ? state.orbitEccentricity.toFixed(2) : "unknown"),
+    "—",
+    "Star luminosity: " + fmt(state.starLuminosity, 3) + " L☉",
+    "Star temp: " + fmt(state.starTeffK, 0) + " K",
+    "Star radius: " + fmt(state.starRadiusRsun, 3) + " R☉",
+    "Star mass: " + fmt(state.starMassMsun, 3) + " M☉",
+    "—",
     "Goldilocks: " + state.hzInnerAu.toFixed(2) + " – " + state.hzOuterAu.toFixed(2) + " AU",
     (state.habitableZoneStatus === "in"
       ? '<b class="hz in-hz">In habitable zone</b>'

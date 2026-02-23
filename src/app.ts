@@ -21,7 +21,9 @@
       pl_masse_min: (fd.get("pl_masse_min") ?? "") as string,
       pl_masse_max: (fd.get("pl_masse_max") ?? "") as string,
       pl_orbper_min: (fd.get("pl_orbper_min") ?? "") as string,
-      pl_orbper_max: (fd.get("pl_orbper_max") ?? "") as string
+      pl_orbper_max: (fd.get("pl_orbper_max") ?? "") as string,
+      pl_orbeccen_min: (fd.get("pl_orbeccen_min") ?? "") as string,
+      pl_orbeccen_max: (fd.get("pl_orbeccen_max") ?? "") as string
     };
   }
 

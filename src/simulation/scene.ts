@@ -6,9 +6,33 @@ declare const THREE: typeof import("three");
 
 import type { SimulationState } from "./model.js";
 
-const DT = 0.005;
+// One orbit at "middle of green" radius ≈ 20 s at 60fps (2π in 1200 frames)
+const DT = (2 * Math.PI) / 1200;
 const DRAG_SENSITIVITY = 0.0005;
 const ZOOM_SENSITIVITY = 0.0004;
+
+/** Star color from effective temp (K): red → orange → yellow → white → blue. Default yellow if unknown. */
+function teffToHex(teffK: number | null): number {
+  const T = teffK != null && teffK > 0 ? Math.max(2000, Math.min(40000, teffK)) : 5778;
+  // Key points: 2500 red, 4000 orange, 5800 yellow, 7500 white, 12000 blue-white, 25000 blue
+  const keys = [
+    { t: 2500, r: 1, g: 0.2, b: 0 },
+    { t: 4000, r: 1, g: 0.5, b: 0 },
+    { t: 5800, r: 1, g: 0.9, b: 0.4 },
+    { t: 7500, r: 1, g: 0.95, b: 0.95 },
+    { t: 12000, r: 0.8, g: 0.85, b: 1 },
+    { t: 25000, r: 0.5, g: 0.6, b: 1 }
+  ];
+  let i = 0;
+  while (i + 1 < keys.length && keys[i + 1].t < T) i++;
+  const a = keys[i];
+  const b = keys[Math.min(i + 1, keys.length - 1)];
+  const f = (T - a.t) / (b.t - a.t);
+  const r = Math.round(255 * (a.r + f * (b.r - a.r)));
+  const g = Math.round(255 * (a.g + f * (b.g - a.g)));
+  const bl = Math.round(255 * (a.b + f * (b.b - a.b)));
+  return (r << 16) | (g << 8) | bl;
+}
 
 export interface SceneOptions {
   onFrame?: () => void;
@@ -18,7 +42,7 @@ export function runScene(canvas: HTMLCanvasElement, state: SimulationState, opti
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(50, canvas.clientWidth / canvas.clientHeight, 0.01, 1000);
   const target = new THREE.Vector3(0, 0, 0);
-  const systemScale = Math.max(state.hzOuter, state.orbitRadius, 2);
+  const systemScale = Math.max(state.hzOuter, state.orbitRadius, 0.08);
   const minRadius = systemScale * 0.5;
   const maxRadius = systemScale * 4;
   let cameraRadius = systemScale * 1.5;
@@ -61,8 +85,14 @@ export function runScene(canvas: HTMLCanvasElement, state: SimulationState, opti
   renderer.setSize(canvas.clientWidth, canvas.clientHeight);
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
 
+  const starColor = teffToHex(state.starTeffK);
   const starGeo = new THREE.SphereGeometry(state.starRadius, 32, 32);
-  const starMat = new THREE.MeshBasicMaterial({ color: 0xffcc66 });
+  // Emissive = reads as self-luminous (no fake sphere). True bloom would need post-processing.
+  const starMat = new THREE.MeshStandardMaterial({
+    color: starColor,
+    emissive: starColor,
+    emissiveIntensity: 1.2
+  });
   const star = new THREE.Mesh(starGeo, starMat);
   scene.add(star);
 

@@ -19,7 +19,8 @@ const RANGES: [string, keyof QueryInput, keyof QueryInput][] = [
   ["pl_orbsmax", "pl_orbsmax_min", "pl_orbsmax_max"],
   ["pl_rade", "pl_rade_min", "pl_rade_max"],
   ["pl_masse", "pl_masse_min", "pl_masse_max"],
-  ["pl_orbper", "pl_orbper_min", "pl_orbper_max"]
+  ["pl_orbper", "pl_orbper_min", "pl_orbper_max"],
+  ["pl_orbeccen", "pl_orbeccen_min", "pl_orbeccen_max"]
 ];
 
 function buildWhere(input: QueryInput): string {
@@ -49,7 +50,12 @@ async function fetchPlanets(input: QueryInput): Promise<FetchResult> {
   const useProxy = typeof location !== "undefined" && /^https?:\/\/localhost(\b|:)/i.test(location.origin);
 
   function parseResponse(res: Response): Promise<FetchResult> {
-    if (!res.ok) return Promise.resolve({ ok: false, error: "Request failed: " + res.status });
+    if (!res.ok) {
+      const msg = res.status === 408
+        ? "Request timed out (408). Try narrowing filters or try again."
+        : "Request failed: " + res.status;
+      return Promise.resolve({ ok: false, error: msg });
+    }
     return res.json().then((raw: unknown) => {
       const data = Array.isArray(raw) ? raw : (raw as { data?: TapRow[]; results?: TapRow[] }).data ?? (raw as { results?: TapRow[] }).results ?? [];
       return { ok: true, data };
@@ -57,9 +63,19 @@ async function fetchPlanets(input: QueryInput): Promise<FetchResult> {
   }
 
   const target = useProxy ? CORS_PROXY + encodeURIComponent(url) : url;
+
+  async function doFetch(noCache: boolean): Promise<FetchResult> {
+    const opts: RequestInit = noCache ? { cache: "no-store" } : {};
+    const res = await fetch(target, opts);
+    if (res.status === 408 && !noCache) {
+      await new Promise((r) => setTimeout(r, 400));
+      return doFetch(true);
+    }
+    return parseResponse(res);
+  }
+
   try {
-    let res = await fetch(target);
-    return await parseResponse(res);
+    return await doFetch(false);
   } catch (e: unknown) {
     const err = e as { message?: string; name?: string };
     if (!useProxy && (err.message === "Failed to fetch" || err.name === "TypeError")) {
@@ -74,4 +90,32 @@ async function fetchPlanets(input: QueryInput): Promise<FetchResult> {
   }
 }
 
-window.GoldilocksQuery = { buildQuery, buildWhere, fetchPlanets };
+function fetchPlanetsByNames(names: string[]): Promise<FetchResult> {
+  if (names.length === 0) return Promise.resolve({ ok: true, data: [] });
+  const escaped = names.map((n) => "'" + String(n).replace(/'/g, "''") + "'");
+  const inList = escaped.join(", ");
+  const query = `SELECT ${SELECT_COLS} FROM ${FROM} WHERE default_flag = 1 AND pl_name IN (${inList})`;
+  const url = `${TAP_BASE}?query=${encodeURIComponent(query)}&format=json`;
+  const useProxy = typeof location !== "undefined" && /^https?:\/\/localhost(\b|:)/i.test(location.origin);
+  const target = useProxy ? CORS_PROXY + encodeURIComponent(url) : url;
+
+  function parseResponse(res: Response): Promise<FetchResult> {
+    if (!res.ok) {
+      const msg = res.status === 408
+        ? "Request timed out (408). Try again."
+        : "Request failed: " + res.status;
+      return Promise.resolve({ ok: false, error: msg });
+    }
+    return res.json().then((raw: unknown) => {
+      const data = Array.isArray(raw) ? raw : (raw as { data?: TapRow[] }).data ?? [];
+      return { ok: true, data };
+    });
+  }
+
+  return fetch(target).then(parseResponse).catch((err: unknown) => ({
+    ok: false as const,
+    error: (err as Error).message || "Network error"
+  }));
+}
+
+window.GoldilocksQuery = { buildQuery, buildWhere, fetchPlanets, fetchPlanetsByNames };
