@@ -1,63 +1,60 @@
 # Goldilocks Sim — System Design (GitHub Pages)
 
-Static site; all data fetched from the browser. No backend.
+Static site; data either from a **preloaded JSON** file or from the **NASA Exoplanet Archive** via the browser. No backend.
+
+## How you pick a planet (three paths)
+
+| Tab | Data source | When |
+|-----|-------------|------|
+| **Examples** | `preloaded-planets.json` (static file in repo) | Fetched once when the tab is shown; list is solar system + a few exoplanets. No API, no CORS. |
+| **Suggestions** | NASA Exoplanet Archive TAP | User clicks a preset (Famous, Highly elliptical, Hot Jupiters, Earth-sized); we build a TAP query and fetch via a **CORS proxy** (all origins). Results **cached in memory** per request key. |
+| **Search** | NASA Exoplanet Archive TAP | User submits the filter form; we build a TAP query and fetch via the same CORS proxy; results cached. |
+
+NASA TAP does not allow arbitrary cross-origin requests, so we send all archive requests through a proxy (e.g. `api.allorigins.win/raw?url=...`). That allows the app to work when deployed (e.g. GitHub Pages, custom domain).
+
+After picking a planet (any tab), we store the row in `sessionStorage` and reload; the sim page reads it and runs the 3D scene.
+
+## High-level flow
 
 ```mermaid
 flowchart TB
     subgraph USER[" "]
-        A[User opens site on GitHub Pages]
+        A[User opens site]
     end
 
-    subgraph PAGE1["Page 1: Query"]
-        B[Parameter form]
-        B --> B1[Star size range]
-        B --> B2[Orbital distance range]
-        B --> B3[Planet size range]
-        B --> B4[Defaults / error ranges]
-        C[User clicks Search / Apply]
-        D[JS builds NASA TAP URL]
-        E[fetch to NASA Exoplanet Archive TAP]
-        F[Parse response JSON/CSV]
-        G[Render results list/table]
+    subgraph MODAL["Modal: Choose a planet"]
+        EX[Examples tab: load preloaded-planets.json]
+        SUG[Suggestions tab: preset → TAP query → proxy → cache]
+        SRCH[Search tab: form → TAP query → proxy → cache]
+        CLICK[User clicks a row]
     end
 
-    subgraph EXTERNAL["External"]
-        TAP["NASA Exoplanet Archive TAP\n exoplanetarchive.ipac.caltech.edu/TAP/sync?query=..."]
+    subgraph VIZ["3D simulation"]
+        STORE[sessionStorage set + reload]
+        RENDER[Read row → createSimulationFromRow]
+        SCENE[Three.js: star, HZ disks, orbit, planet]
+        KEPLER[Kepler II: angular speed ∝ 1/r²]
     end
 
-    subgraph PAGE2["Page 2: 3D Viz"]
-        H[User clicks a result row]
-        I[JS passes planet + star params to viz]
-        J[Render 3D scene: star, orbit, planet]
-        K[Compute & draw Goldilocks zone green disk]
-        L[Show habitability details]
-    end
-
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> TAP
-    TAP --> F
-    F --> G
-    G --> H
-    H --> I
-    I --> J
-    J --> K
-    K --> L
+    A --> MODAL
+    EX --> CLICK
+    SUG --> CLICK
+    SRCH --> CLICK
+    CLICK --> STORE
+    STORE --> RENDER
+    RENDER --> SCENE
+    SCENE --> KEPLER
 ```
 
 ## Data flow (no backend)
 
 | Step | Where | What |
 |------|--------|------|
-| 1 | Page 1 (JS) | Read form values (ranges for star size, orbital distance, planet size, etc.). |
-| 2 | Page 1 (JS) | Build ADQL query and TAP URL (e.g. `SELECT ... FROM ps WHERE ... &format=json`). |
-| 3 | Browser | `fetch(TAP_URL)` → NASA TAP (CORS permitting). |
-| 4 | Page 1 (JS) | Parse response → display rows. |
-| 5 | User | Clicks one result. |
-| 6 | Page 2 (JS) | Receive planet/star params (via route state, hash, or sessionStorage). |
-| 7 | Page 2 (JS) | Three.js (or similar): draw star, orbit from `pl_orbsmax`/ecc, planet from `pl_rade`. |
-| 8 | Page 2 (JS) | Compute HZ from stellar lum/Teff; draw green disk; show “in Goldilocks” yes/no. |
+| 1 | Modal (Examples) | Fetch `preloaded-planets.json`; render list. Same row shape as TAP. |
+| 2 | Modal (Suggestions / Search) | Build ADQL and TAP URL; `fetch(CORS_PROXY + TAP_URL)`; parse JSON; cache on success; render list. |
+| 3 | User | Clicks one result (from any tab). |
+| 4 | JS | `sessionStorage.setItem("goldilocks_planet", JSON.stringify(row))`; reload. |
+| 5 | Sim page | Read row from sessionStorage; `createSimulationFromRow(row)` → state (orbit, HZ, star, etc.). Semi-major axis derived from period when catalog value missing or inconsistent (Kepler III). |
+| 6 | Sim page | Three.js: star (color from Teff), three HZ disks (red / green / blue), elliptical orbit (Kepler II: speed ∝ 1/r²), planet. |
 
-Everything runs in the browser; no server or “piping” — only static files + JS calling NASA TAP.
+Everything runs in the browser; only static files, one optional JSON fetch, and (for Suggestions/Search) proxied TAP requests.

@@ -1,6 +1,8 @@
 # Goldilocks Sim
 
-Exoplanet query + 3D orbit viz (Goldilocks zone). Pick a planet from the NASA Exoplanet Archive, see its orbit and whether it sits in the star’s habitable zone. Static site (TypeScript → `dist/`); runs in the browser, no backend.
+3D orbit viz with habitable-zone (Goldilocks) display. Pick a planet and see its orbit and whether it sits inside the star’s habitable zone. Static site (TypeScript → `dist/`); runs in the browser, no backend.
+
+**Ways to pick a planet:** (1) **Examples** — preloaded list (solar system + a few exoplanets) in `preloaded-planets.json`; instant, no API. (2) **Suggestions** — preset categories that query the NASA Exoplanet Archive. (3) **Search** — custom filters against the archive. All requests go through a CORS proxy so the app works when deployed (e.g. GitHub Pages). Successful API results are cached in memory.
 
 **Build, run locally, deploy:** see **[docs/setup.md](docs/setup.md)**.
 
@@ -36,6 +38,8 @@ We query the **NASA Exoplanet Archive** TAP API (`ps` table, default composite r
 | **pl_orbincl** | Orbital inclination (deg) | Queried; reserved for future use. |
 
 Search filters use the same physical quantities: we send min/max for `st_rad`, `st_teff`, `pl_orbsmax`, `pl_rade`, `pl_masse`, `pl_orbper`, `pl_orbeccen` to build the TAP `WHERE` clause.
+
+**Preloaded planet info:** `preloaded-planets.json` holds a static list of planets (solar system eight + Proxima Cen b, Kepler-452 b, Kepler-186 f, 51 Pegasi b, HD 209458 b). Same row shape as the archive. The **Examples** tab loads this file so users can visualize without waiting on the API.
 
 ---
 
