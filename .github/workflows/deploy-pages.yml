@@ -39,6 +39,7 @@ jobs:
         run: |
           mkdir -p site
           cp index.html site/
+          cp preloaded-planets.json site/
           cp -r dist site/
 
       - name: Setup Pages

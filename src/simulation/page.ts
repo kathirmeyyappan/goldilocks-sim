@@ -17,10 +17,19 @@ import { runScene } from "./scene.js";
   const form = document.getElementById("query-form") as HTMLFormElement;
   const statusEl = document.getElementById("search-status") as HTMLParagraphElement;
   const resultsEl = document.getElementById("search-results") as HTMLUListElement;
+  const examplesListEl = document.getElementById("examples-list") as HTMLUListElement;
   const closeBtn = document.getElementById("search-close");
 
   function openModal(): void {
     overlay?.classList.add("visible");
+    if (document.getElementById("tab-examples")?.classList.contains("active")) {
+      statusEl.textContent = "Click a planet to visualize.";
+      loadExamples()
+        .then(renderExamples)
+        .catch(() => {
+          statusEl.textContent = "Could not load preloaded planets.";
+        });
+    }
   }
 
   function closeModal(): void {
@@ -79,6 +88,35 @@ import { runScene } from "./scene.js";
     }
   ];
 
+  let examplesLoaded: TapRow[] | null = null;
+  async function loadExamples(): Promise<TapRow[]> {
+    if (examplesLoaded) return examplesLoaded;
+    const res = await fetch("preloaded-planets.json");
+    if (!res.ok) throw new Error("Could not load preloaded planets.");
+    const data = (await res.json()) as TapRow[];
+    examplesLoaded = Array.isArray(data) ? data : [];
+    return examplesLoaded;
+  }
+  function renderExamples(rows: TapRow[]): void {
+    if (!examplesListEl) return;
+    examplesListEl.innerHTML = "";
+    rows.forEach((row) => {
+      const li = document.createElement("li");
+      const name = row.pl_name ?? row.PL_NAME ?? "—";
+      const host = row.hostname ?? row.HOSTNAME ?? "—";
+      li.textContent = name + " (" + host + ")";
+      li.addEventListener("click", () => {
+        try {
+          sessionStorage.setItem("goldilocks_planet", JSON.stringify(row));
+          closeModal();
+          window.location.reload();
+        } catch (e) {
+          statusEl.textContent = "Could not select: " + (e as Error).message;
+        }
+      });
+      examplesListEl.appendChild(li);
+    });
+  }
   document.querySelectorAll(".modal-tab").forEach((btn) => {
     btn.addEventListener("click", () => {
       const tab = (btn as HTMLElement).dataset.tab;
@@ -87,9 +125,16 @@ import { runScene } from "./scene.js";
       btn.classList.add("active");
       const panel = document.getElementById("tab-" + tab);
       if (panel) panel.classList.add("active");
+      if (tab === "examples") {
+        statusEl.textContent = "Click a planet to visualize.";
+        loadExamples()
+          .then(renderExamples)
+          .catch(() => {
+            statusEl.textContent = "Could not load preloaded planets.";
+          });
+      }
     });
   });
-
   const gridEl = document.getElementById("suggestions-grid");
   PRESETS.forEach((preset) => {
     const btn = document.createElement("button");

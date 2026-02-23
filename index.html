@@ -44,9 +44,9 @@
     #search-modal button[type="submit"] { background: #4488ff; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; }
     #search-modal button[type="submit"]:hover { background: #5599ff; }
     #search-status { margin: 12px 0; font-size: 14px; min-height: 1.2em; }
-    #search-results { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; }
-    #search-results li { padding: 10px 12px; border-bottom: 1px solid #333; cursor: pointer; font-size: 14px; }
-    #search-results li:hover { background: #333; }
+    #search-results, #examples-list { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; }
+    #search-results li, #examples-list li { padding: 10px 12px; border-bottom: 1px solid #333; cursor: pointer; font-size: 14px; }
+    #search-results li:hover, #examples-list li:hover { background: #333; }
     #search-modal .close { float: right; background: transparent; color: #888; border: 1px solid #555; padding: 4px 10px; cursor: pointer; border-radius: 4px; font-size: 14px; margin-top: -4px; }
     #search-modal .close:hover { color: #fff; background: #444; }
     #search-modal .modal-tabs { display: flex; gap: 0; margin: 0 0 16px; padding: 0; border-bottom: 1px solid #555; }
@@ -111,16 +111,21 @@
   </div>
   <canvas id="canvas"></canvas>
 
-  <!-- Planet picker modal (Suggestions + Search tabs) -->
+  <!-- Planet picker modal (Examples + Suggestions + Search tabs) -->
   <div id="search-overlay">
     <div id="search-modal">
       <button type="button" class="close" id="search-close" aria-label="Close">×</button>
       <h2>Choose a planet</h2>
       <div class="modal-tabs" role="tablist">
-        <button type="button" class="modal-tab active" data-tab="suggestions" role="tab">Suggestions</button>
+        <button type="button" class="modal-tab active" data-tab="examples" role="tab">Examples</button>
+        <button type="button" class="modal-tab" data-tab="suggestions" role="tab">Suggestions</button>
         <button type="button" class="modal-tab" data-tab="search" role="tab">Search</button>
       </div>
-      <div id="tab-suggestions" class="tab-panel active" role="tabpanel">
+      <div id="tab-examples" class="tab-panel active" role="tabpanel">
+        <p style="margin: 0 0 12px; color: #aaa; font-size: 14px;">Preloaded planets (solar system + exoplanets). Click to visualize.</p>
+        <ul id="examples-list"></ul>
+      </div>
+      <div id="tab-suggestions" class="tab-panel" role="tabpanel">
         <p style="margin: 0 0 12px; color: #aaa; font-size: 14px;">Pick a category to load planets, then click one to visualize.</p>
         <div class="suggestions-grid" id="suggestions-grid"></div>
       </div>
