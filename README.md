@@ -1,6 +1,18 @@
 # Goldilocks Sim
 
-Exoplanet query + 3D orbit viz (Goldilocks zone). Static site for GitHub Pages. TypeScript source in `src/`, compiled to `dist/`.
+Exoplanet query + 3D orbit viz (Goldilocks zone). Pick a planet from the NASA Exoplanet Archive, see its orbit and whether it sits in the star’s habitable zone. Static site (TypeScript → `dist/`); runs in the browser, no backend.
+
+**Build, run locally, deploy:** see **[docs/setup.md](docs/setup.md)**.
+
+---
+
+## Demo
+
+<!-- Add a short demo video or GIF here, e.g.:
+[![Demo](thumbnail.png)](https://your-video-url)
+-->
+
+---
 
 ## Data source and query
 
@@ -73,27 +85,3 @@ Search filters use the same physical quantities: we send min/max for `st_rad`, `
 - **Green ring:** Inner to outer HZ (habitable).
 - **Blue ring:** Outer HZ to a bit beyond (too far).
 - **Status:** “In habitable zone” if orbit semi-major axis is between inner and outer HZ; otherwise “too close” or “too far”.
-
----
-
-## Build
-
-```bash
-npm install
-npm run build
-```
-
-## Run locally
-
-Browsers block requests from `file://`. Use a local server:
-
-```bash
-npm run serve
-```
-
-Then open **http://localhost:3000** (or the port shown).
-
-## Pages
-
-- **index.html** — 3D simulation (home). “Search planets” / “Change planet” opens a modal (Suggestions presets + Search filters); picking a planet loads the sim.
-- **simulation/** — Same 3D view when opened directly with a stored planet.
