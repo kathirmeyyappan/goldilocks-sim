@@ -163,11 +163,13 @@ export function createSimulationFromRow(row: Record<string, unknown>): Simulatio
     },
 
     update(deltaTime: number): void {
-      // GUI-native speed: reference = middle of green zone (scene scale). Orbit period ∝ radius.
-      // So angular speed ∝ 1/radius: double the radius → double the orbit time (e.g. 20s → 40s).
+      // Kepler II: equal areas in equal times → angular speed ∝ 1/r² (fast near star, slow far).
+      // Use current radius so elliptical orbits speed up at periastron and slow at apastron.
       const refRadius = (hzInner + hzOuter) * 0.5;
-      const r = Math.max(orbitRadius, refRadius * 0.01);
-      time += deltaTime * (refRadius / r);
+      const rCurrent = Math.max(radiusAtAngle(time), orbitRadius * 0.01);
+      const oneOverRSq = (orbitRadius / rCurrent) ** 2;
+      const sqrtOneMinusE2 = Math.sqrt(1 - orbitEccentricity * orbitEccentricity);
+      time += deltaTime * (refRadius / orbitRadius) * oneOverRSq * sqrtOneMinusE2;
     },
 
     getPlanetPosition(): { x: number; y: number; z: number } {

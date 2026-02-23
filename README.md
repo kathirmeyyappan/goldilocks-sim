@@ -53,7 +53,8 @@ Search filters use the same physical quantities: we send min/max for `st_rad`, `
 
 ### 4. Orbit animation (time and speed)
 
-- **Angular speed:** Chosen so one orbit at the *middle* of the green zone takes ~20 s. Speed ∝ 1/*r*: `time += deltaTime * (refRadius / r)` with `refRadius = (hzInner + hzOuter) / 2`, so outer orbits take longer on screen.
+- **Kepler’s second law (equal areas in equal times):** Angular speed ∝ 1/*r*², so the planet **speeds up** when close to the star (periastron) and **slows down** when far (apastron). We use the **current** radius *r*(θ) at each step (not the semi-major axis), so elliptical orbits look physically correct.
+- **Scaling:** One orbit at the *middle* of the green zone takes ~20 s. We advance the true anomaly θ by `deltaTime × (refRadius / orbitRadius) × (orbitRadius / r_current)² × √(1 − e²)` so the orbit period in animation time is unchanged.
 - **Elapsed time:** Elapsed days = (*t* / 2π) × `orbitalPeriodDays`; years = days / 365.25.
 
 ### 5. Star and planet sizes in the scene
