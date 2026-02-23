@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Goldilocks Sim — Query</title>
+</head>
+<body>
+  <h1>Goldilocks Sim</h1>
+  <form id="query-form">
+    <fieldset>
+      <legend>Filters (inclusive ranges)</legend>
+      <label>Star radius (R☉) min <input type="number" name="st_rad_min" step="any" value="0.1"> max <input type="number" name="st_rad_max" step="any" value="10"></label><br>
+      <label>Star temp (K) min <input type="number" name="st_teff_min" step="any" value=""> max <input type="number" name="st_teff_max" step="any" value=""></label><br>
+      <label>Orbital dist (AU) min <input type="number" name="pl_orbsmax_min" step="any" value="0.01"> max <input type="number" name="pl_orbsmax_max" step="any" value="100"></label><br>
+      <label>Planet radius (R⊕) min <input type="number" name="pl_rade_min" step="any" value="0.1"> max <input type="number" name="pl_rade_max" step="any" value="30"></label><br>
+      <label>Planet mass (M⊕) min <input type="number" name="pl_masse_min" step="any" value=""> max <input type="number" name="pl_masse_max" step="any" value=""></label><br>
+      <label>Orbital period (days) min <input type="number" name="pl_orbper_min" step="any" value=""> max <input type="number" name="pl_orbper_max" step="any" value=""></label><br>
+    </fieldset>
+    <button type="submit">Search</button>
+  </form>
+  <p id="status"></p>
+  <ul id="results"></ul>
+
+  <script src="dist/query.js"></script>
+  <script src="dist/app.js"></script>
+</body>
+</html>
