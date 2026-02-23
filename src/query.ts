@@ -28,11 +28,17 @@ function buildWhere(input: QueryInput): string {
   for (const [col, minKey, maxKey] of RANGES) {
     const minVal = input[minKey];
     const maxVal = input[maxKey];
-    if (minVal === "" || minVal == null || maxVal === "" || maxVal == null) continue;
-    const min = Number(minVal);
-    const max = Number(maxVal);
-    if (Number.isFinite(min) && Number.isFinite(max)) {
+    const min = minVal !== "" && minVal != null ? Number(minVal) : NaN;
+    const max = maxVal !== "" && maxVal != null ? Number(maxVal) : NaN;
+    const hasMin = Number.isFinite(min);
+    const hasMax = Number.isFinite(max);
+    if (!hasMin && !hasMax) continue;
+    if (hasMin && hasMax) {
       parts.push(`(${col} IS NOT NULL AND ${col} BETWEEN ${min} AND ${max})`);
+    } else if (hasMin) {
+      parts.push(`(${col} IS NOT NULL AND ${col} >= ${min})`);
+    } else {
+      parts.push(`(${col} IS NOT NULL AND ${col} <= ${max})`);
     }
   }
   return parts.join(" AND ");
