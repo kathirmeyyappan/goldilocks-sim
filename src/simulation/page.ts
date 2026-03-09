@@ -9,7 +9,11 @@ import { runScene } from "./scene.js";
   const disclaimerBtn = document.getElementById("disclaimer-btn");
   const disclaimerEl = document.getElementById("disclaimer");
   if (disclaimerBtn && disclaimerEl) {
-    disclaimerBtn.addEventListener("click", () => disclaimerEl.classList.toggle("visible"));
+    disclaimerBtn.addEventListener("click", () => {
+      disclaimerEl.classList.toggle("hidden");
+      disclaimerBtn.textContent = disclaimerEl.classList.contains("hidden") ? "Show" : "Hide";
+      disclaimerBtn.setAttribute("aria-label", disclaimerEl.classList.contains("hidden") ? "Show assumptions" : "Hide assumptions");
+    });
   }
 
   const overlay = document.getElementById("search-overlay");
