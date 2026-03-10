@@ -22,7 +22,7 @@ export interface SimulationState {
   readonly hzOuter: number;
   readonly orbitEccentricity: number;
   readonly eccentricityKnown: boolean;
-  /** Star luminosity L/L☉ (from 10^st_lum). null if unknown. */
+  /** Star luminosity L/L☉ (from catalog or derived from R and T). null if unknown. */
   readonly starLuminosity: number | null;
   /** Star effective temp (K). null if unknown. */
   readonly starTeffK: number | null;
@@ -48,11 +48,30 @@ function num(row: Record<string, unknown>, key: string, fallback: number): numbe
   return v != null && Number.isFinite(Number(v)) ? Number(v) : fallback;
 }
 
-/** HZ bounds (AU) from stellar luminosity. st_lum = log10(L/L_sun); flux ~ L/d^2 so distance ~ sqrt(L). */
-function habitableZoneAU(stLum: number | null): { inner: number; outer: number } {
-  if (stLum == null || !Number.isFinite(stLum)) return { inner: 0.75, outer: 1.77 };
-  const L = Math.pow(10, stLum);
-  return { inner: 0.75 * Math.sqrt(L), outer: 1.77 * Math.sqrt(L) };
+/** HZ bounds (AU) from stellar luminosity. L in solar units; flux ~ L/d^2 so distance ~ sqrt(L). */
+function habitableZoneAU(Lsolar: number): { inner: number; outer: number } {
+  const L = Lsolar > 0 ? Lsolar : 1;
+  const s = Math.sqrt(L);
+  return { inner: 0.75 * s, outer: 1.77 * s };
+}
+
+const T_SUN_K = 5778;
+
+/** Luminosity in solar units. From 10^st_lum if available; else from (R/R☉)² (T/T☉)⁴ when R and T exist. */
+function resolveLuminosity(
+  row: Record<string, unknown>,
+  stLum: number,
+  stRad: number,
+  stTeff: number | null
+): number {
+  const lumFromLog = get(row, "st_lum");
+  if (lumFromLog != null && Number.isFinite(Number(lumFromLog))) {
+    return Math.pow(10, Number(lumFromLog));
+  }
+  if (stRad > 0 && stTeff != null && Number.isFinite(stTeff) && stTeff > 0) {
+    return stRad * stRad * Math.pow(stTeff / T_SUN_K, 4);
+  }
+  return 1;
 }
 
 /** Fixed scale: 1 unit = 1 AU. Star/planet radii exaggerated for visibility. */
@@ -90,10 +109,12 @@ export function createSimulationFromRow(row: Record<string, unknown>): Simulatio
   const plOrbeccen = num(row, "pl_orbeccen", 0);
   const plRade = num(row, "pl_rade", 1);
 
-  const starLuminosity: number | null =
-    stLum != null && Number.isFinite(stLum) ? Math.pow(10, stLum) : null;
-  const starTeffK: number | null =
+  const stTeffNum: number | null =
     stTeff != null && Number.isFinite(Number(stTeff)) ? Number(stTeff) : null;
+  const luminosity = resolveLuminosity(row, stLum, stRad, stTeffNum);
+
+  const starLuminosity: number | null = luminosity;
+  const starTeffK: number | null = stTeffNum;
   const starRadiusRsun: number | null =
     stRad != null && Number.isFinite(stRad) ? stRad : null;
   const starMassMsun: number | null =
@@ -101,7 +122,7 @@ export function createSimulationFromRow(row: Record<string, unknown>): Simulatio
   const planetMassMe: number | null =
     plMasse != null && Number.isFinite(Number(plMasse)) ? Number(plMasse) : null;
 
-  const hzAu = habitableZoneAU(stLum);
+  const hzAu = habitableZoneAU(luminosity);
   const inHz = plOrbsmax >= hzAu.inner && plOrbsmax <= hzAu.outer;
   const habitableZoneStatus: "in" | "too-close" | "too-far" =
     inHz ? "in" : plOrbsmax < hzAu.inner ? "too-close" : "too-far";

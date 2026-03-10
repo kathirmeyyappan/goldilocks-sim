@@ -33,7 +33,6 @@ flowchart TB
         STORE[sessionStorage set + reload]
         RENDER[Read row → createSimulationFromRow]
         SCENE[Three.js: star, HZ disks, orbit, planet]
-        KEPLER[Kepler II: angular speed ∝ 1/r²]
     end
 
     A --> MODAL
@@ -43,7 +42,6 @@ flowchart TB
     CLICK --> STORE
     STORE --> RENDER
     RENDER --> SCENE
-    SCENE --> KEPLER
 ```
 
 ## Data flow (no backend)
@@ -54,7 +52,38 @@ flowchart TB
 | 2 | Modal (Suggestions / Search) | Build ADQL and TAP URL; `fetch(CORS_PROXY + TAP_URL)`; parse JSON; cache on success; render list. |
 | 3 | User | Clicks one result (from any tab). |
 | 4 | JS | `sessionStorage.setItem("goldilocks_planet", JSON.stringify(row))`; reload. |
-| 5 | Sim page | Read row from sessionStorage; `createSimulationFromRow(row)` → state (orbit, HZ, star, etc.). Semi-major axis derived from period when catalog value missing or inconsistent (Kepler III). |
-| 6 | Sim page | Three.js: star (color from Teff), three HZ disks (red / green / blue), elliptical orbit (Kepler II: speed ∝ 1/r²), planet. |
+| 5 | Sim page | Read row from sessionStorage; `createSimulationFromRow(row)` → state. All derived values (orbital distance, luminosity, Goldilocks zone) come from computations and fallbacks below. |
+| 6 | Sim page | Three.js: star (color from Teff), three HZ disks, elliptical orbit, planet. Orbit animation uses equal-areas-in-equal-times (Kepler II). |
 
 Everything runs in the browser; only static files, one optional JSON fetch, and (for Suggestions/Search) proxied TAP requests.
+
+## Computation and fallbacks
+
+These happen inside `createSimulationFromRow` (and the scene uses the resulting state). They are not separate user-facing steps.
+
+### Orbital distance (semi-major axis, AU)
+
+- **Primary:** Catalog value `pl_orbsmax` when present and **consistent** with period and star mass (within 0.5×–2× of the Kepler III value).
+- **Fallback:** From orbital period and star mass via **Kepler III**: \(a_{\mathrm{AU}}^3 = T_{\mathrm{yr}}^2 \cdot M_\odot\). Used when the catalog value is missing or outside that range (e.g. archive placeholder 1.0).
+
+### Stellar luminosity (for Goldilocks zone and display)
+
+- **Primary:** \(L/L_\odot = 10^{\mathtt{st\_lum}}\) when `st_lum` (log₁₀ luminosity) is present in the row.
+- **Fallback:** Derived from radius and effective temperature when `st_lum` is missing or invalid: \(L/L_\odot = (R/R_\odot)^2 \cdot (T/T_\odot)^4\) with \(T_\odot = 5778\,\mathrm{K}\). Ensures red dwarfs (e.g. K2-18) get a correct HZ instead of defaulting to solar luminosity.
+- **Last resort:** \(L = 1\) (solar) if neither source is usable.
+
+### Goldilocks zone (habitable zone, AU)
+
+- **Formula:** Flux \(\propto L/d^2\) ⇒ distance \(\propto \sqrt{L}\). Inner and outer bounds use the **resolved luminosity** (above):
+  - Inner: \(0.75 \sqrt{L}\)
+  - Outer: \(1.77 \sqrt{L}\)
+- **In/out check:** Planet semi-major axis vs these bounds → “in”, “too close”, or “too far”. No climate or atmosphere model; luminosity-only.
+
+### Orbit animation
+
+- **Kepler II:** Equal areas in equal times → angular speed \(\propto 1/r^2\) (with current \(r\) and eccentricity). Elliptical orbit is drawn from precomputed points; the planet position is advanced using this relation so it speeds up near the star.
+
+### Scale and reference in the scene
+
+- **Units:** 1 scene unit = 1 AU everywhere.
+- **1 AU reference:** A dashed gray circle at radius 1 AU in the same plane as the orbit and HZ disks (XZ). The disclaimer notes that this circle marks 1 AU from the star.
